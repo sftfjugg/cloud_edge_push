@@ -1,0 +1,162 @@
+#pragma once
+
+#include <functional>
+#include <chrono>
+#include <future>
+// #define NOT_USE_THREAD_POOL
+#ifndef NOT_USE_THREAD_POOL
+#include <vector>
+#include <queue>
+#include <memory>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <future>
+#include <functional>
+#include <stdexcept>
+
+class ThreadPool {
+public:
+    ThreadPool(size_t);
+    template<class F, class... Args>
+    auto enqueue(F&& f, Args&&... args) 
+        -> std::future<typename std::result_of<F(Args...)>::type>;
+    ~ThreadPool();
+private:
+    // need to keep track of threads so we can join them
+    std::vector< std::thread > workers;
+    // the task queue
+    std::queue< std::function<void()> > tasks;
+    
+    // synchronization
+    std::mutex queue_mutex;
+    std::condition_variable condition;
+    bool stop;
+};
+ 
+// the constructor just launches some amount of workers
+inline ThreadPool::ThreadPool(size_t threads)
+    :   stop(false)
+{
+    for(size_t i = 0;i<threads;++i)
+        workers.emplace_back(
+            [this]
+            {
+                for(;;)
+                {
+                    std::function<void()> task;
+
+                    {
+                        std::unique_lock<std::mutex> lock(this->queue_mutex);
+                        this->condition.wait(lock,
+                            [this]{ return this->stop || !this->tasks.empty(); });
+                        if(this->stop && this->tasks.empty())
+                            return;
+                        task = std::move(this->tasks.front());
+                        this->tasks.pop();
+                    }
+
+                    task();
+                }
+            }
+        );
+}
+
+// add new work item to the pool
+template<class F, class... Args>
+auto ThreadPool::enqueue(F&& f, Args&&... args) 
+    -> std::future<typename std::result_of<F(Args...)>::type>
+{
+    using return_type = typename std::result_of<F(Args...)>::type;
+
+    auto task = std::make_shared< std::packaged_task<return_type()> >(
+            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+        );
+        
+    std::future<return_type> res = task->get_future();
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+
+        // don't allow enqueueing after stopping the pool
+        if(stop)
+            throw std::runtime_error("enqueue on stopped ThreadPool");
+
+        tasks.emplace([task](){ (*task)(); });
+    }
+    condition.notify_one();
+    return res;
+}
+
+// the destructor joins all threads
+inline ThreadPool::~ThreadPool()
+{
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        stop = true;
+    }
+    condition.notify_all();
+    for(std::thread &worker: workers)
+        worker.join();
+}
+
+class ThreadPoolSingleton
+{
+public:
+    static ThreadPoolSingleton &instance()
+    {
+        static ThreadPoolSingleton ins;
+        return ins;
+    }
+    ThreadPool &pool() { return _pool; }
+
+private:
+    ThreadPoolSingleton() : _pool(10) {} 
+    ~ThreadPoolSingleton() = default;
+    ThreadPool _pool;
+};
+#endif
+
+template <typename callable, typename... arguments>
+void really_async(callable &&f, arguments &&...args)
+{
+    std::function<typename std::result_of<callable(arguments...)>::type()> task(std::bind(std::forward<callable>(f), std::forward<arguments>(args)...));
+
+#ifdef NOT_USE_THREAD_POOL // not use thread pool
+    std::thread([task]() {
+        task();
+    }).detach();
+#else
+    auto &pool = ThreadPoolSingleton::instance().pool();
+    pool.enqueue([task]() {
+        task();
+    });
+#endif
+}
+
+// async : 是否异步执行
+template <class callable, class... arguments>
+void delay_call(int after, bool async, callable &&f, arguments &&... args)
+{
+    std::function<typename std::result_of<callable(arguments...)>::type()> task(std::bind(std::forward<callable>(f), std::forward<arguments>(args)...));
+
+    if (async)
+    {
+#ifdef NOT_USE_THREAD_POOL // not use thread pool
+        std::thread([after, task]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(after));
+            task();
+        }).detach();
+#else
+        auto &pool = ThreadPoolSingleton::instance().pool();
+        pool.enqueue([after, task]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(after));
+            task();
+        });
+#endif
+    }
+    else
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(after));
+        task();
+    }
+}

@@ -1,3 +1,4 @@
+rawset(_G, 'lfs', false)
 local route = require("resty.route").new()
 
 route {

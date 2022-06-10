@@ -36,7 +36,7 @@ local function decompress(src_path)
     return file_content
 end
 
-local function publish_message(tbl, channelname)
+local function publish_message(tbl, sessionid)
 
     if not tbl then
         ngx.log(ngx.ERR, "parameter error when publishing to client process")
@@ -44,7 +44,7 @@ local function publish_message(tbl, channelname)
     end
 
     local msg = cjson.encode({ data = tbl, timestamp =  ngx.now() * 1000})
-    local rec, err = notify_msg_queue:rpush(channelname, msg) -- 添加到每个session的消息队列中
+    local rec, err = notify_msg_queue:rpush(sessionid, msg) -- 添加到每个session的消息队列中
     if not rec then
         ngx.log(ngx.ERR, 'push msg to queue fail!msg: ', msg, ", error: ", err)
     end
@@ -83,7 +83,6 @@ local function print_allfiles()
         local k = cur:key()
         assert(k)
         local d = cur:data()
-        print(d)
         if not cur:next_entry() then
             break
         end
@@ -107,7 +106,7 @@ function _M.run( ... )
     local post = post:new({ path = def.tmp_root })
     local m = post:read()
 
-    print(util.dump(m))
+    ngx.log(ngx.INFO, util.dump(m))
     m.files_info = util.trim(m.files_info)
     local files_info = cjson.decode(m.files_info)
     for _, f in ipairs(files_info) do
@@ -119,7 +118,9 @@ function _M.run( ... )
             end
             mkdir(filepath)
             f.remotefile_url = filepath .. f.filename
-            f.save_path = f.remotefile_url
+            if not f.save_path then
+                f.save_path = f.remotefile_url
+            end
             os.rename(def.tmp_root .. v.tmp_name, f.remotefile_url)
             update_fileinfo(f)
 
@@ -131,12 +132,12 @@ function _M.run( ... )
     end
 
     for _, f in ipairs(files_info) do
-        local channelnames = client_types:get_keys(0)
+        local sessionids = client_types:get_keys(0)
         local client_type
-        for _, channelname in ipairs(channelnames) do
-            client_type = client_types:get(channelname)
+        for _, sessionid in ipairs(sessionids) do
+            client_type = client_types:get(sessionid)
             if client_type == f.type then
-                publish_message(f, channelname)
+                publish_message(f, sessionid)
             end
         end
     end

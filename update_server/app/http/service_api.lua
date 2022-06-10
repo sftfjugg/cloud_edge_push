@@ -23,9 +23,9 @@ function _M.run( ... )
                 local data = db:get(param.type .. '_' .. param.filename)
                 db:close()
                 result.data = cjson.decode(data)
-                ngx.say(cjson.encode(result))
             else
-                ngx.say('param error, need type and fileanme!')
+                ngx.say('param error, need type and filename!')
+                return
             end
         else
             local db = unqlite.open(def.updatedb)
@@ -44,8 +44,12 @@ function _M.run( ... )
             assert(cur:release())
             db:close()
             result.data = tbl
-            ngx.say(cjson.encode(result))
         end
+    end
+    if result.data then
+        local respone = cjson.encode(result)
+        ngx.log(ngx.INFO, respone)
+        ngx.say(respone)
     end
 end
 

@@ -14,10 +14,10 @@ function _M.session_broken_clean(session)
     --session退出登录后的处理，清空队列所占的共享内存空间
 
     session.is_login = false
-    notify_msg_queue:delete(session.channelname)
+    notify_msg_queue:delete(session.sessionid)
     notify_msg_queue:flush_expired()
 
-    client_types:delete(session.channelname)
+    client_types:delete(session.sessionid)
     client_types:flush_expired()
 
     if session.notify_msg_thread then
@@ -29,7 +29,7 @@ end
 
 local function _notify_msg_proc(session)
     while session and session.is_login do
-        local message = notify_msg_queue:lpop(session.channelname)
+        local message = notify_msg_queue:lpop(session.sessionid)
         if not message then
             ngx.sleep(0.002) -- 2ms
         else
@@ -82,7 +82,7 @@ local function _do_login_req(session, typ, tbl)
 
         if tbl.data and tbl.data.type then
             session.client_type = tbl.data.type
-            client_types:set(session.channelname, session.client_type)
+            client_types:set(session.sessionid, session.client_type)
         end
 
         session.notify_msg_thread = ngx.thread.spawn(_notify_msg_proc, session)

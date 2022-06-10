@@ -26,7 +26,7 @@ local function _session_exit(session)
     session.exit = true
 
     -- session退出后，清空队列所占的共享内存空间
-    msg_queue:delete(session.channelname)
+    msg_queue:delete(session.sessionid)
     msg_queue:flush_expired()
 end
 
@@ -38,7 +38,7 @@ local function _push_msg_to_sendqueue(session, typ, body)
     end
     local msg = packet.packet_message(session.sync_bytes, typ, body)
 
-    local rec, err = msg_queue:rpush(session.channelname, msg) -- 添加到每个session的消息队列中
+    local rec, err = msg_queue:rpush(session.sessionid, msg) -- 添加到每个session的消息队列中
     if not rec then
         ngx.log(ngx.ERR, 'push msg to queue fail!: ', err)
     end
@@ -78,7 +78,7 @@ end
 local function _send_message(session)
     local sock = session.client.sock
     while session and session.exit ~= true do
-        local message, err = msg_queue:lpop(session.channelname)
+        local message, err = msg_queue:lpop(session.sessionid)
         if not message then
             ngx.sleep(0.002) -- 2ms
         else
@@ -99,7 +99,7 @@ function _M.run(session)
 
     session.ip = ngx.var.remote_addr -- client ip address
     session.port = ngx.var.remote_port -- client ip port
-    session.channelname = util.channelname(session.ip, session.port) -- example: client_127_0_0_1_1235
+    session.sessionid = util.sessionid(session.ip, session.port) -- example: client_127_0_0_1_1235
 
     session.push_msg_to_sendqueue = _push_msg_to_sendqueue
     local send_thread = ngx.thread.spawn(_send_message, session) -- subscribe the msg_queue then send message to client

@@ -125,11 +125,11 @@ function _M.covert_string_to_table(str)
     return t
 end
 
-function _M.channelname(ip, port)
+function _M.sessionid(ip, port)
     return table.concat({"client", ngx.re.gsub(ip, "\\.", "_", "jo"), port}, "_")
 end
 
-function _M.convert_address_to_channelname(address)
+function _M.convert_address_to_sessionid(address)
     return "client".."_"..ngx.re.gsub(address, "\\.", "_", "jo")
 end
 

@@ -17,6 +17,7 @@ static const char* kMsgHeartbeatReq    = "sendHeartbeatReq";       // send heart
 static const char* kMsgReadHeader      = "handleReadHeader";       // MessageBus register topic for sending read header to messagehandler module
 static const char* kMsgReadBody        = "handleReadBody";         // MessageBus register topic for sending read body to messagehandler module
 static const char* kMsgFileInfos       = "handleFileInfos";         // MessageBus register topic for sending received FileInfos
+static const char* kMsgSysInfo         = "handleSysInfo";         // MessageBus register topic for sending received system_info
 
 enum CloseError_t
 {

@@ -117,3 +117,21 @@ std::string JsonMessageProcessor::encodeSendFileInfosNtf(const SendFileInfosNtf_
 }
 
 
+
+std::string JsonMessageProcessor::encodeSysInfoNtf(const SendSysInfoNtf_t &ntf)
+{
+    ptree pt, ptData;
+    pt.put<std::string>("msg_type", "file_infos_ntf");
+    pt.put<uint64_t>("timestamp", Utility::getTimeStamp());
+
+    ptData.put<std::string>("ip", ntf.ip);
+    ptData.put<std::string>("sys_info", ntf.sysinfo);
+
+    pt.put_child("data", ptData);
+
+    ostringstream ss;
+    write_json(ss, pt);
+    return ss.str();
+}
+
+

@@ -30,12 +30,12 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    #模块对于SAFESEH映像是不安全
+    #ģ�����SAFESEHӳ���ǲ���ȫ
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SAFESEH:NO")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /SAFESEH:NO")
 
-    #添加预处理器定义
+    #����Ԥ����������
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
     ADD_DEFINITIONS(-D_WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
@@ -56,6 +56,7 @@ aux_source_directory(src DIR_SRCS)
 
 include_directories(${PROJECT_SOURCE_DIR}/../../thirdparty/loghelper/include)
 include_directories(${PROJECT_SOURCE_DIR}/../tcpclient)
+include_directories(${PROJECT_SOURCE_DIR}/../recv_sys_info) 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/../../include)
 include_directories(${PROJECT_SOURCE_DIR}/../include)
@@ -77,6 +78,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     curl
     loghelper
     tcpclient
+    recv_sys_info
     boost_system
     boost_filesystem
     )

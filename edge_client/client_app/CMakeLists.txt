@@ -4,3 +4,4 @@ project(client_app)
 
 add_subdirectory (tcpclient)
 add_subdirectory (edge_app)
+add_subdirectory (recv_sys_info)

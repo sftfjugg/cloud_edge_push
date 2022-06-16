@@ -37,8 +37,10 @@ private:
 
     void onSendHeartbeatReq();
     void onRecvFileInfos(std::string fileInfos);
+    void onRecvSysInfo(std::string sysInfo);
 
     void sendFileInfos();
+    void sendSysInfo(const std::string &sysInfo);
     void startSendFileInfosTimer();
 
     SyncWaitMsg _syncObject;

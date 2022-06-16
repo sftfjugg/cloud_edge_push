@@ -6,6 +6,7 @@
 #include "utility.hpp"
 #include "call_async.hpp"
 #include "messagebus.h"
+#include "recv_sys_info.h"
 
 using namespace boost;
 using namespace std;
@@ -19,7 +20,9 @@ std::thread MessageHandler::start(const ClientConfig_t &cfg)
     _tcpSessionStarted = false;
     std::thread t(&MessageHandler::startTcpSession, this);
     g_messagebus.attach<std::string>(kMsgFileInfos, &MessageHandler::onRecvFileInfos, *this);
+    g_messagebus.attach<std::string>(kMsgSysInfo, &MessageHandler::onRecvSysInfo, *this);
     _sysUpdateHandler.init(cfg.httpServer);
+    startRecvSysInfo(10);
     return t;
 }
 
@@ -116,6 +119,14 @@ void MessageHandler::onRecvFileInfos(std::string fileInfos)
     }
 }
 
+void MessageHandler::onRecvSysInfo(std::string sysInfo)
+{
+    if (!sysInfo.empty() && _isLogin)
+    {
+        sendSysInfo(sysInfo);  // 发送系统信息给服务器
+        LOG(kInfo) << "sysInfo: " << sysInfo;
+    }
+}
 
 void MessageHandler::sendFileInfos()
 {
@@ -134,7 +145,22 @@ void MessageHandler::sendFileInfos()
         _tcpclient->write(msg);
 }
 
+void MessageHandler::sendSysInfo(const std::string &sysInfo)
+{
+    if (_tcpclient == nullptr)
+        return;
 
+    LOG(kInfo) << "send SysInfo_ntf";
+    TcpMessage_t msg;
+    SendSysInfoNtf_t ntf;
+    ntf.ip = Utility::get_local_ip();
+    ntf.sysinfo = sysInfo;
+    msg.msgType = kSendSysInfoNtf;
+    msg.body = std::move(s_processor.encodeSysInfoNtf(ntf));
+    LOG(kInfo) << "msg.body: " << msg.body;
+    if (_tcpSessionStarted)
+        _tcpclient->write(msg);
+}
 
 void MessageHandler::startSendFileInfosTimer()
 {

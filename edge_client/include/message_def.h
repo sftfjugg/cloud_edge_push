@@ -14,6 +14,7 @@ static const uint32_t kUpdateFileNtf = 2023;
 
 static const uint32_t kSendFileInfosNtf = 2033;
 
+static const uint32_t kSendSysInfoNtf = 2043;
 
 
 struct ClientConfig_t
@@ -56,6 +57,12 @@ struct SendFileInfosNtf_t
 {
     std::string ip;
     std::string fileInfos;
+};
+
+struct SendSysInfoNtf_t
+{
+    std::string ip;
+    std::string sysinfo;
 };
 
 

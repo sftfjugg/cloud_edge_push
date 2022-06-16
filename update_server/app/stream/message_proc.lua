@@ -126,6 +126,16 @@ local function _do_recv_fileinfos_ntf(session, typ, tbl)
     end
 end
 
+local function _do_recv_sysinfo_ntf(session, typ, tbl)
+    if not tbl and not tbl.data then
+        ngx.log(ngx.ERR, 'parameter errors in the send_file_infos package')
+    else
+    end
+    if tbl.data.sys_info then
+        print(util.dump(cjson.decode(tbl.data.sys_info)))
+    end
+end
+
 
 function _M.proc(session, typ, body, image)
     local data
@@ -141,7 +151,9 @@ function _M.proc(session, typ, body, image)
     elseif typ == msgdef.kSendFileInfosNtf then
         ret, typ, data = _do_recv_fileinfos_ntf(session, typ, tbl)
         return
-
+    elseif typ == msgdef.kSendSysInfoNtf then
+        ret, typ, data = _do_recv_sysinfo_ntf(session, typ, tbl)
+        return
     else
         data = { code = "1201" }
         ngx.log(ngx.ERR, 'message type is UNKNOWN! msg_type: ', typ, ' ,body: ', body)

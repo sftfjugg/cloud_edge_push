@@ -9,6 +9,7 @@ local _M = {
 
     kSendFileInfosNtf = 2033,
 
+    kSendSysInfoNtf = 2043
 }
 
 return _M

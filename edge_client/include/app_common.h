@@ -3,7 +3,6 @@
 #include <string>
 #include <map>
 #include <functional>
-
 #include "message_def.h"
 
 static const uint32_t kIntLen         = 4;                 // sizeof(int) is 4
@@ -16,7 +15,8 @@ static const char* kMsgTcpSessionError = "handleTcpSessionError";  // tcp sessio
 static const char* kMsgClose           = "handleClose";            // clear when tcpsession closed
 static const char* kMsgHeartbeatReq    = "sendHeartbeatReq";       // send heartbeat_req 
 static const char* kMsgReadHeader      = "handleReadHeader";       // MessageBus register topic for sending read header to messagehandler module
-static const char* kMsgReadBody        = "handleReadBody";         // essageBus register topic for sending read body to messagehandler module
+static const char* kMsgReadBody        = "handleReadBody";         // MessageBus register topic for sending read body to messagehandler module
+static const char* kMsgFileInfos       = "handleFileInfos";         // MessageBus register topic for sending received FileInfos
 
 enum CloseError_t
 {

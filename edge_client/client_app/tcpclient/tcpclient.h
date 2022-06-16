@@ -3,7 +3,6 @@
 
 #include <boost/asio.hpp>
 #include "tcp_message.h"
-#include "messagebus.hpp"
 #include "app_common.h"
 
 #if (!defined(ROCK_LIB) && !defined(ROCK_LINUX_PLATFORM))
@@ -32,7 +31,6 @@ public:
     // note: _syncBytes _bodyLen _fullMsgLen这三个字段会自动补全，可以不用填写
     void write(TcpMessage_t &msg);
     void close();
-    MessageBus<> &messagebus();
     void start();
 
 private:

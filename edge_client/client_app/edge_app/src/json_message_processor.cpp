@@ -99,3 +99,21 @@ std::string JsonMessageProcessor::encodeLoginReq(const LoginReq_t &req)
     write_json(ss, pt);
     return ss.str();
 }
+
+std::string JsonMessageProcessor::encodeSendFileInfosNtf(const SendFileInfosNtf_t &ntf)
+{
+    ptree pt, ptData;
+    pt.put<std::string>("msg_type", "file_infos_ntf");
+    pt.put<uint64_t>("timestamp", Utility::getTimeStamp());
+
+    ptData.put<std::string>("ip", ntf.ip);
+    ptData.put<std::string>("file_infos", ntf.fileInfos);
+
+    pt.put_child("data", ptData);
+
+    ostringstream ss;
+    write_json(ss, pt);
+    return ss.str();
+}
+
+

@@ -26,8 +26,3 @@ void TcpClient::close()
 {
     return _pImpl->close();
 }
-
-MessageBus<>& TcpClient::messagebus()
-{
-    return _pImpl->messagebus();
-}

@@ -8,7 +8,6 @@
 #include "message_def.h"
 #include "tcp_message.h"
 #include "syncwaitmsg.hpp"
-#include "thread_pool.hpp"
 #include "sys_update_handler.h"
 
 class TcpClient;
@@ -34,13 +33,19 @@ public:
 private:
     void onStart();
     void onClose();
-    void onSendHeartbeatReq();
     void onReadBody(TcpMessage_t msg);
 
+    void onSendHeartbeatReq();
+    void onRecvFileInfos(std::string fileInfos);
+
+    void sendFileInfos();
+    void startSendFileInfosTimer();
+
     SyncWaitMsg _syncObject;
-    TcpClient *_client = nullptr;
+    TcpClient *_tcpclient = nullptr;
     ClientConfig_t _cfg;
     boost::asio::io_context _io_context;
     std::atomic<bool> _tcpSessionStarted;
+    std::atomic<bool> _isLogin;
     SysUpdateHandler _sysUpdateHandler;
 };

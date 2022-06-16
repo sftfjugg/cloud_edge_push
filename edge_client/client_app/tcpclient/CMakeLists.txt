@@ -42,15 +42,14 @@ include_directories(${PROJECT_SOURCE_DIR}/../../include)
 link_directories(${PROJECT_SOURCE_DIR}/../../thirdparty/loghelper/lib)
 link_directories(${PROJECT_SOURCE_DIR}/../../lib)
 
-
-add_library( ${PROJECT_NAME} SHARED ${DIR_SRCS} ${HEADER_FILES})
-
+add_library( ${PROJECT_NAME} ${DIR_SRCS} ${HEADER_FILES})
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     add_definitions(-DROCK_LINUX_PLATFORM -DBOOST_LOG_DYN_LINK)
 
     target_link_libraries(${PROJECT_NAME}
     pthread
+    boost_system
     loghelper
 )
 elseif (CMAKE_SYSTEM_NAME MATCHES "Windows")  

@@ -12,6 +12,8 @@ public:
 
     std::string encodeHeartbeatReq(const HeartbeatReq_t& req);
     std::string encodeLoginReq(const LoginReq_t& req);
+    std::string encodeSendFileInfosNtf(const SendFileInfosNtf_t &ntf);
+
     bool decodeHeartbeatRsp(const std::string& json, HeartbeatRsp_t& rsp);
     bool decodeLoginRsp(const std::string& json, LoginRsp_t& rsp);
     bool decodeDownloadFileInfo(const std::string &json, FileInfo_t &t);

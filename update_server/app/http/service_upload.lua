@@ -4,9 +4,10 @@ local post = require('resty.post')
 local zzlib = require("zzlib.zzlib")
 local unqlite = require('unqlite')
 local def = require('com_def')
-local lfs   = require("lfs")
+local lfs = require("lfs")
 
 local notify_msg_queue = ngx.shared.notify_msg_queue
+local upload_info = ngx.shared.upload_info
 local client_types = ngx.shared.tcp_client_types
 
 local _M = {
@@ -36,7 +37,7 @@ local function decompress(src_path)
     return file_content
 end
 
-local function publish_message(tbl, sessionid)
+function _M.publish_message(tbl, sessionid)
 
     if not tbl then
         ngx.log(ngx.ERR, "parameter error when publishing to client process")
@@ -74,7 +75,7 @@ local function mkdir(p)
     end
 end
 
-
+-- for debug
 local function print_allfiles()
     local db = unqlite.open(def.updatedb)
     local cur = db:cursor()
@@ -109,6 +110,8 @@ function _M.run( ... )
     ngx.log(ngx.INFO, util.dump(m))
     m.files_info = util.trim(m.files_info)
     local files_info = cjson.decode(m.files_info)
+
+    local db = unqlite.open(def.updatedb)
     for _, f in ipairs(files_info) do
         local v = m.files[f.filename]
         if v then
@@ -124,20 +127,26 @@ function _M.run( ... )
             os.rename(def.tmp_root .. v.tmp_name, f.remotefile_url)
             update_fileinfo(f)
 
+            local f_key = f.type .. '_' .. f.filename
+            local f_info = cjson.encode(f)
+            -- 更新缓存--
+            upload_info:set(f_key, f_info)
             -- 添加上传记录进db --
-            local db = unqlite.open(def.updatedb)
-            db:set(f.type .. '_' .. f.filename, cjson.encode(f))
-            db:close()
+            db:set(f_key, f_info)
         end
     end
+    db:close()
+
 
     for _, f in ipairs(files_info) do
-        local sessionids = client_types:get_keys(0)
-        local client_type
-        for _, sessionid in ipairs(sessionids) do
-            client_type = client_types:get(sessionid)
-            if client_type == f.type then
-                publish_message(f, sessionid)
+        if f.need_push then --若need_push字段为true，则需要推送该文件至客户端
+            local sessionids = client_types:get_keys(0)
+            local client_type
+            for _, sessionid in ipairs(sessionids) do
+                client_type = client_types:get(sessionid)
+                if client_type == f.type then
+                    _M.publish_message(f, sessionid)
+                end
             end
         end
     end

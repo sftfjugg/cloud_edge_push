@@ -116,6 +116,17 @@ local function _do_heart_req(session, typ, tbl)
     return ret, typ, data
 end
 
+local function _do_recv_fileinfos_ntf(session, typ, tbl)
+    if not tbl and not tbl.data then
+        ngx.log(ngx.ERR, 'parameter errors in the send_file_infos package')
+    else
+    end
+    if tbl.data.file_infos then
+        print(util.dump(cjson.decode(tbl.data.file_infos)))
+    end
+end
+
+
 function _M.proc(session, typ, body, image)
     local data
     local ret = {}
@@ -126,10 +137,14 @@ function _M.proc(session, typ, body, image)
         
     elseif typ == msgdef.kHeartReq then
         ret, typ, data = _do_heart_req(session, typ, tbl)
+    
+    elseif typ == msgdef.kSendFileInfosNtf then
+        ret, typ, data = _do_recv_fileinfos_ntf(session, typ, tbl)
+        return
 
     else
         data = { code = "1201" }
-        ngx.log(ngx.ERR, 'message type is UNKNOWN! msg_type: ', typ)
+        ngx.log(ngx.ERR, 'message type is UNKNOWN! msg_type: ', typ, ' ,body: ', body)
         return
     end
     

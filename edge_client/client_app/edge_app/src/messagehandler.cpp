@@ -4,6 +4,8 @@
 #include "json_message_processor.h"
 #include "loghelper.h"
 #include "utility.hpp"
+#include "call_async.hpp"
+#include "messagebus.h"
 
 using namespace boost;
 using namespace std;
@@ -11,13 +13,13 @@ using boost::asio::ip::tcp;
 using namespace RockLog;
 static JsonMessageProcessor s_processor;
 
-
-std::thread MessageHandler::start(const ClientConfig_t& cfg)
+std::thread MessageHandler::start(const ClientConfig_t &cfg)
 {
     _cfg = cfg;
     _tcpSessionStarted = false;
     std::thread t(&MessageHandler::startTcpSession, this);
-
+    g_messagebus.attach<std::string>(kMsgFileInfos, &MessageHandler::onRecvFileInfos, *this);
+    g_messagebus.attach<std::string>(kMsgSysInfo, &MessageHandler::onRecvSysInfo, *this);
     _sysUpdateHandler.init(cfg.httpServer);
     return t;
 }
@@ -25,13 +27,13 @@ std::thread MessageHandler::start(const ClientConfig_t& cfg)
 void MessageHandler::startTcpSession()
 {
     TcpClient client(_io_context, _cfg);
-    _client = &client;
+    _tcpclient = &client;
 
     // add message handlers
-    client.messagebus().attach<>(kMsgStart, &MessageHandler::onStart, *this);
-    client.messagebus().attach<>(kMsgHeartbeatReq, &MessageHandler::onSendHeartbeatReq, *this);
-    client.messagebus().attach<TcpMessage_t>(kMsgReadBody, &MessageHandler::onReadBody, *this);
-    client.messagebus().attach<>(kMsgClose, &MessageHandler::onClose, *this);
+    g_messagebus.attach<>(kMsgStart, &MessageHandler::onStart, *this);
+    g_messagebus.attach<>(kMsgHeartbeatReq, &MessageHandler::onSendHeartbeatReq, *this);
+    g_messagebus.attach<TcpMessage_t>(kMsgReadBody, &MessageHandler::onReadBody, *this);
+    g_messagebus.attach<>(kMsgClose, &MessageHandler::onClose, *this);
 
     client.start();
 
@@ -41,12 +43,12 @@ void MessageHandler::startTcpSession()
 void MessageHandler::stop()
 {
     _io_context.stop();
-    _client = nullptr;
+    _tcpclient = nullptr;
 }
 
 void MessageHandler::sendHeartbeatReq()
 {
-    if (_client == nullptr)
+    if (_tcpclient == nullptr)
         return;
 
     LOG(kInfo) << "send heart_req";
@@ -56,12 +58,12 @@ void MessageHandler::sendHeartbeatReq()
     msg.msgType = kHeartReq;
     msg.body = std::move(s_processor.encodeHeartbeatReq(req));
     if (_tcpSessionStarted)
-        _client->write(msg);
+        _tcpclient->write(msg);
 }
 
 void MessageHandler::sendLoginReq()
 {
-    if (_client == nullptr)
+    if (_tcpclient == nullptr)
         return;
 
     LOG(kInfo) << "send login_req";
@@ -70,11 +72,11 @@ void MessageHandler::sendLoginReq()
     LoginReq_t req;
     req.ip = Utility::get_local_ip();
     req.type = _cfg.clientType;
-    
+
     msg.msgType = kLoginReq;
     msg.body = std::move(s_processor.encodeLoginReq(req));
     if (_tcpSessionStarted)
-        _client->write(msg);
+        _tcpclient->write(msg);
 
     _syncObject.wait(kLoginRsp, 3); // 等待3秒，一般必须收到login_rsp消息才能进行下一步处理业务
 }
@@ -103,7 +105,43 @@ void MessageHandler::onSendHeartbeatReq()
     sendHeartbeatReq();
 }
 
+static std::string s_fileInfos; // 保存在本地文件中的已下载文件信息json串
+void MessageHandler::onRecvFileInfos(std::string fileInfos)
+{
+    s_fileInfos = fileInfos;
 
+    if (!s_fileInfos.empty() && _isLogin)
+    {
+        sendFileInfos();   // 发送已下载文件给服务器
+        LOG(kInfo) << "s_fileInfos: " << s_fileInfos;
+    }
+}
+
+
+void MessageHandler::sendFileInfos()
+{
+    if (_tcpclient == nullptr)
+        return;
+
+    LOG(kInfo) << "send FileInfos_ntf";
+    TcpMessage_t msg;
+    SendFileInfosNtf_t ntf;
+    ntf.ip = Utility::get_local_ip();
+    ntf.fileInfos = s_fileInfos;
+    msg.msgType = kSendFileInfosNtf;
+    msg.body = std::move(s_processor.encodeSendFileInfosNtf(ntf));
+    LOG(kInfo) << "msg.body: " << msg.body;
+    if (_tcpSessionStarted)
+        _tcpclient->write(msg);
+}
+
+
+
+void MessageHandler::startSendFileInfosTimer()
+{
+    sendFileInfos();
+    delay_call(60 * 1000, true, &MessageHandler::startSendFileInfosTimer, this);
+}
 
 void MessageHandler::onReadBody(TcpMessage_t msg)
 {
@@ -120,7 +158,10 @@ void MessageHandler::onReadBody(TcpMessage_t msg)
     else if (kLoginRsp == msg.msgType)
     {
         LOG(kInfo) << "receive login_rsp";
-        _syncObject.receive(msg.msgType); 
+        _syncObject.receive(msg.msgType);
+        _isLogin = true;
+        // 开始定时发送当前已下载文件信息
+        startSendFileInfosTimer();
     }
     else if (kUpdateFileNtf == msg.msgType) // 获取到更新消息
     {
@@ -129,7 +170,7 @@ void MessageHandler::onReadBody(TcpMessage_t msg)
         bool b = s_processor.decodeDownloadFileInfo(msg.body, t);
         if (!b)
         {
-            LOG(kErr) << "decodeDownloadFileInfo err, msg.body: " << msg.body ;
+            LOG(kErr) << "decodeDownloadFileInfo err, msg.body: " << msg.body;
             return;
         }
         if (!_sysUpdateHandler.isNeedDownload(t))
@@ -152,4 +193,3 @@ void MessageHandler::onReadBody(TcpMessage_t msg)
         LOG(kInfo) << "receive msgType: " << msg.msgType << "\n";
     }
 }
-

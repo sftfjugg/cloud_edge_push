@@ -6,6 +6,9 @@ local _M = {
     kHeartRsp = 2012,
     
     kUpdateFileNtf = 2023,
+
+    kSendFileInfosNtf = 2033,
+
 }
 
 return _M

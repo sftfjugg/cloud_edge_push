@@ -4,69 +4,70 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/algorithm/string.hpp>
 #include <fstream>
+#include <sstream>
+#include <iostream>
 #include <boost/algorithm/hex.hpp>
 #include <boost/uuid/detail/md5.hpp>
 #include <boost/filesystem.hpp>
-#include <iostream>
 #include "loghelper.h"
 
 using namespace RockLog;
 using namespace boost;
 
 // load app configure
-bool loadFileInfos(const std::string &filepath, std::vector<FileInfo_t> &m_fileInfo_vec)
+bool loadFileInfosFromStr(const std::string &fileInfos, std::vector<FileInfo_t> &m_fileInfo_vec)
 {
     try
     {
-        if (boost::filesystem::exists(filepath))
+        std::stringstream ss;
+        ss << fileInfos;
+
+        property_tree::ptree pt;
+        property_tree::json_parser::read_json(ss, pt);
+
+        auto files = pt.get_child_optional("files");
+        if (files)
         {
-            property_tree::ptree pt;
-            property_tree::json_parser::read_json(filepath, pt);
-
-            auto files = pt.get_child_optional("files");
-            if (files)
+            for (auto it : *files)
             {
-                for (auto it : *files)
-                {
-                    auto f = it.second;
-                    FileInfo_t t;
-                    auto modify_time = f.get_optional<uint64_t>("modify_time");
-                    if (modify_time)
-                        t.modify_time = *modify_time;
+                auto f = it.second;
+                FileInfo_t t;
+                auto modify_time = f.get_optional<uint64_t>("modify_time");
+                if (modify_time)
+                    t.modify_time = *modify_time;
 
-                    auto type = f.get_optional<int>("type");
-                    if (type)
-                        t.type = *type;
+                auto type = f.get_optional<int>("type");
+                if (type)
+                    t.type = *type;
 
-                    auto md5 = f.get_optional<std::string>("md5");
-                    if (md5)
-                        t.md5 = *md5;
+                auto md5 = f.get_optional<std::string>("md5");
+                if (md5)
+                    t.md5 = *md5;
 
-                    // 保存至本地磁盘路径
-                    auto save_path = f.get_optional<std::string>("save_path");
-                    if (save_path)
-                        t.save_path = *save_path;
+                // 保存至本地磁盘路径
+                auto save_path = f.get_optional<std::string>("save_path");
+                if (save_path)
+                    t.save_path = *save_path;
 
-                    // 从服务器下载文件路径
-                    auto remotefile_url = f.get_optional<std::string>("remotefile_url");
-                    if (remotefile_url)
-                        t.remotefile_url = *remotefile_url;
+                // 从服务器下载文件路径
+                auto remotefile_url = f.get_optional<std::string>("remotefile_url");
+                if (remotefile_url)
+                    t.remotefile_url = *remotefile_url;
 
-                    auto version = f.get_optional<std::string>("version");
-                    if (version)
-                        t.version = *version;
+                auto version = f.get_optional<std::string>("version");
+                if (version)
+                    t.version = *version;
 
-                    auto filename = f.get_optional<std::string>("filename");
-                    if (filename)
-                        t.filename = *filename;
+                auto filename = f.get_optional<std::string>("filename");
+                if (filename)
+                    t.filename = *filename;
 
-                    auto filesize = f.get_optional<uint64_t>("filesize");
-                    if (filesize)
-                        t.filesize = *filesize;
-                    m_fileInfo_vec.push_back(t);
-                }
-                return true;
+                auto filesize = f.get_optional<uint64_t>("filesize");
+                if (filesize)
+                    t.filesize = *filesize;
+                m_fileInfo_vec.push_back(t);
             }
+            return true;
         }
         return false;
     }
@@ -77,7 +78,40 @@ bool loadFileInfos(const std::string &filepath, std::vector<FileInfo_t> &m_fileI
     }
 }
 
-void writeFileInfos(const std::string &filepath, const std::vector<FileInfo_t> &fileInfo_vec)
+bool readFile2Str(const std::string &filepath, std::string &fileInfos)
+{
+    try
+    {
+        if (boost::filesystem::exists(filepath))
+        {
+            std::ifstream is(filepath);
+            if (is)
+            {
+                // get length of file:
+                is.seekg(0, is.end);
+                int length = is.tellg();
+                is.seekg(0, is.beg);
+
+                char *buffer = new char[length];
+                // read data as a block:
+                is.read(buffer, length);
+                is.close();
+                fileInfos = std::string(buffer, length);
+                delete[] buffer;
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+    catch (const std::exception &e)
+    {
+        std::cout << e.what() << std::endl;
+        return false;
+    }
+}
+
+std::string writeFileInfos2Str(const std::vector<FileInfo_t> &fileInfo_vec)
 {
     try
     {
@@ -98,13 +132,36 @@ void writeFileInfos(const std::string &filepath, const std::vector<FileInfo_t> &
             files.push_back(std::make_pair("", child));
         }
         pt.add_child("files", files);
-        boost::filesystem::remove(filepath);
-        write_json(filepath, pt);
+        std::ostringstream ssout;
+        write_json(ssout, pt);
+        return ssout.str();
     }
     catch (const std::exception &e)
     {
-        LOG(kErr) << e.what() << '\n';
+        LOG(kErr) << e.what();
     }
+    return "";
+}
+
+void writeFileInfos(const std::string &filepath, const std::vector<FileInfo_t> &fileInfo_vec)
+{
+    boost::filesystem::remove(filepath);
+    std::string fileInfos = writeFileInfos2Str(fileInfo_vec);
+    if (fileInfos.empty())
+        return;
+    // write to outfile
+    std::ofstream outfile(filepath);
+    outfile.write(fileInfos.c_str(), fileInfos.size());
+    outfile.close();
+}
+
+void writeFileInfos2File(const std::string &filepath, const std::string &fileInfos)
+{
+    boost::filesystem::remove(filepath);
+    // write to outfile
+    std::ofstream outfile(filepath);
+    outfile.write(fileInfos.c_str(), fileInfos.size());
+    outfile.close();
 }
 
 static bool getMd5(std::string &str_md5, const char *const buffer, size_t buffer_size)
@@ -171,16 +228,16 @@ bool checkFileInfos(std::vector<FileInfo_t> &m_fileInfo_vec)
             }
             else
                 ok = false;
-
-            if (!ok)
-                m_fileInfo_vec.erase(iter++);
+            if (!ok) 
+                iter = m_fileInfo_vec.erase(iter);
             else
                 ++iter;
         }
+        return true;
     }
     catch (const std::exception &e)
     {
-        std::cout << e.what() << std::endl;
+        LOG(kErr) << e.what() << std::endl;
         return false;
     }
 }

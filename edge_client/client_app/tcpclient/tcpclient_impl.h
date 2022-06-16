@@ -5,7 +5,6 @@
 #include <boost/asio.hpp>
 #include <atomic>
 #include "tcp_message.h"
-#include "messagebus.hpp"
 #include <stdint.h>
 #include "app_common.h"
 
@@ -31,8 +30,6 @@ public:
     void write(TcpMessage_t& msg);
 
     void close();
-
-    MessageBus<>& messagebus() { return _messagebus; }
 
     void start();
 
@@ -84,6 +81,5 @@ private:
     std::string _wbuf;    // message bytes write buffer
 
     boost::asio::ip::tcp::resolver::results_type _endpoints;
-    MessageBus<> _messagebus;
 };
 

@@ -1,6 +1,7 @@
 #include "tcpclient_impl.h"
 #include <iostream>
 #include "bytes_buffer.hpp"
+#include "messagebus.h"
 #include "app_common.h"
 #include "loghelper.h"
 #include <thread>
@@ -61,7 +62,7 @@ void TcpClientImpl::handleConnect(const boost::system::error_code &ec)
         {
             //throw boost::system::system_error(ec ? ec : boost::asio::error::operation_aborted);
             close();
-            _messagebus.sendMessage(kMsgTcpSessionError);
+            g_messagebus.sendMessage(kMsgTcpSessionError);
         }
         else
         {
@@ -80,7 +81,7 @@ void TcpClientImpl::handleConnect(const boost::system::error_code &ec)
         LOG(kInfo) << "Connected to " << _endpoints->endpoint() << "\n";
         
         // program start
-        _messagebus.sendMessage(kMsgStart);
+        g_messagebus.sendMessage(kMsgStart);
 
         // Start the input actor.
         startRead();
@@ -151,7 +152,7 @@ void TcpClientImpl::handleReadHeader(const boost::system::error_code &ec)
             LOG(kDebug) << "Set the heartbeat flag to true, when receive heartbeat response" << std::endl;
         }
         
-        _messagebus.sendMessage(kMsgReadHeader, _readMsg);
+        g_messagebus.sendMessage(kMsgReadHeader, _readMsg);
     }
     else
     {
@@ -188,7 +189,7 @@ void TcpClientImpl::handleReadBody(const boost::system::error_code &ec)
             _readMsg.body = body;
         }
 
-        _messagebus.sendMessage(kMsgReadBody, _readMsg);
+        g_messagebus.sendMessage(kMsgReadBody, _readMsg);
 
         _rbuf.clear();
         _rbuf.resize(kTotalHeadLen);
@@ -279,7 +280,7 @@ void TcpClientImpl::checkHeartbeat()
         if (_isRecvedHeartbeatRsp)
         {
             // send heartbeat message
-            _messagebus.sendMessage(kMsgHeartbeatReq);
+            g_messagebus.sendMessage(kMsgHeartbeatReq);
             _isRecvedHeartbeatRsp = false;
             _heartBeatLostTimes = 0; // re-init
         }
@@ -297,7 +298,7 @@ void TcpClientImpl::checkHeartbeat()
             else
             {
                 _heartBeatLostTimes += 1;
-                _messagebus.sendMessage(kMsgHeartbeatReq);
+                g_messagebus.sendMessage(kMsgHeartbeatReq);
             }
         }
         _heartbeatTimer.expires_from_now(boost::posix_time::seconds(_clientConfig.heartbeatInterval));
@@ -313,7 +314,7 @@ void TcpClientImpl::checkHeartbeat()
 void TcpClientImpl::doClose()
 {
     LOG(kDebug) << "TcpClientImpl:doClose()" << std::endl;
-    _messagebus.sendMessage(kMsgClose);
+    g_messagebus.sendMessage(kMsgClose);
     _stopped = true;
     boost::system::error_code ignored_ec;
     _socket.close(ignored_ec);

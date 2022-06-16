@@ -19,7 +19,6 @@ std::thread MessageHandler::start(const ClientConfig_t &cfg)
     _tcpSessionStarted = false;
     std::thread t(&MessageHandler::startTcpSession, this);
     g_messagebus.attach<std::string>(kMsgFileInfos, &MessageHandler::onRecvFileInfos, *this);
-    g_messagebus.attach<std::string>(kMsgSysInfo, &MessageHandler::onRecvSysInfo, *this);
     _sysUpdateHandler.init(cfg.httpServer);
     return t;
 }
